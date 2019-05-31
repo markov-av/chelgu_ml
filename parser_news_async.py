@@ -116,7 +116,8 @@ async def parse(url: str, session: aiohttp.ClientSession, **kwargs) -> set:
 
 async def bulk_crawl_and_write(urls: asyncio.coroutine, **kwargs) -> None:
     """Crawl & write concurrently to `file` for multiple `urls`."""
-    async with aiohttp.ClientSession() as session:
+    timeout = aiohttp.ClientTimeout(total=60*60)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
         tasks = []
         for url in urls:
             tasks.append(
