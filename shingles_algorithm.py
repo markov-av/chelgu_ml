@@ -1,5 +1,6 @@
 import re
-from hashlib import md5
+from pprint import pprint
+from hashlib import sha256, sha384, sha224, sha512, sha1, md5
 from nltk import ngrams
 
 
@@ -20,23 +21,29 @@ class CheckDuplicates:
 
     @staticmethod
     def __make_hash(ngrams: tuple) -> list:
-        return [md5(' '.join(ngram).encode('utf-8')).hexdigest()
-                for ngram in ngrams]
+        hash_ngrams = []
+        hash_func = [sha256, sha384, sha224, sha512, sha1, md5]
+        ngrams = list(ngrams)
+        for func in hash_func:
+            hash_ngrams.append([func(' '.join(ngram).encode('utf-8')).hexdigest()
+                                for ngram in ngrams])
+        return hash_ngrams
 
     def hash_shingles_similarity(self, text_a: str, text_b: str) -> float:
         count = 0
         hash_text_a, hash_text_b = self.hash_shingles(text_a), self.hash_shingles(text_b)
         for hash_a, hash_b in zip(hash_text_a, hash_text_b):
-            if hash_a == hash_b:
+            if min(hash_a) == min(hash_b):
                 count += 1
         return count / len(hash_text_a)
 
 
 
 text_a = "Стала стабильнее экономическая и политическая обстановка, предприятия вывели из тени зарплаты сотрудников."
-text_b = "Стала стабильнее экономическая и политическая обстановка, предприятия вывели из тени"
+text_b = "Стала стабильнее экономическая и политическая обстановка"
+# text_b = "Надеюсь, я доступно смог изложить теорию нахождения почти дубликатов для веб-документов"
 
-checker = CheckDuplicates()
+checker = CheckDuplicates(5)
 print(checker.hash_shingles_similarity(text_a, text_b))
 
 
