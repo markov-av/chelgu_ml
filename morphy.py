@@ -35,28 +35,26 @@ class OdictMorphy:
             self.odict = f.readlines()
         for line in self.odict:
             lemma, value, *other_words = line.split(',')
-            self.corpus[lemma] = {'lemma': lemma, 'value': self.mapper[value]}
+            self.corpus[lemma] = {'lemma': lemma, 'value': value}
             for word in other_words:
                 if word in self.corpus.keys():
                     continue
                 else:
-                    self.corpus[word] = {'lemma': lemma,
-                                         'value': self.mapper[value]}
+                    self.corpus[word] = {'lemma': lemma, 'value': value}
 
-    def __to_lemmatize(self, word: str):
+    def __to_lemmatize(self, word: str) -> dict:
         return self.corpus.get(
-            word.lower(), {'lemma': word.lower(), 'value': 'S'}
+            word.lower(), {'lemma': word.lower(), 'value': 'мн.'}
         )
 
     def lemmatize(self, text: str) -> str:
         lemmatize_text = ''
-        text = re.sub("[,.]", " ", text)
-        for word in text.split():
+        for word in re.sub("[,.]", " ", text).split():
             lemmatize_word = self.__to_lemmatize(word)
             lemmatize_text = f"{lemmatize_text}" + \
                              f"{word}" + \
                              "{" + \
                              f"{lemmatize_word['lemma']}=" + \
-                             f"{lemmatize_word['value']}" + \
+                             f"{self.mapper[lemmatize_word['value']]}" + \
                              "} "
         return lemmatize_text
