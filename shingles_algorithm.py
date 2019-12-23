@@ -1,6 +1,7 @@
 import re
 from pprint import pprint
 from hashlib import sha256, sha384, sha224, sha512, sha1, md5
+from typing import Generator
 from nltk import ngrams
 
 
@@ -8,7 +9,7 @@ class CheckDuplicates:
     def __init__(self, length=5):
         self.length = length
 
-    def shingles(self, doc: str) -> tuple:
+    def shingles(self, doc: str) -> Generator[tuple, None, None]:
         assert len(doc) > self.length, 'Please change shingles length'
         return ngrams(self.__text_canonizing(doc).split(), self.length)
 
@@ -20,7 +21,7 @@ class CheckDuplicates:
         return re.sub("[,.!?:;*^%$#]", " ", text)
 
     @staticmethod
-    def __make_hash(ngrams: tuple) -> list:
+    def __make_hash(ngrams: Generator) -> list:
         hash_ngrams = []
         hash_func = [sha256, sha384, sha224, sha512, sha1, md5]
         ngrams = list(ngrams)
