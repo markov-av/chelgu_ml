@@ -58,3 +58,14 @@ class OdictMorphy:
                              f"{self.mapper[lemmatize_word['value']]}" + \
                              "} "
         return lemmatize_text
+
+ '''
+You've got the score 0.7471736896197327 
+(86.5% correct lemmas and 81.7% correct POS tags)
+'''
+# morphy = OdictMorphy()
+# with open('dataset_37845_1.txt') as f:
+#     data = f.readlines()
+# with open('answer.txt', 'w') as f:
+#     for text in data:
+#         f.write(f"{morphy.lemmatize(text=text)}\n")
