@@ -13,14 +13,13 @@ class NgramModel:
         self.word_count = 0
         self.N = 2
         self.ngram_counter = {}
-        self.__word_in_ngram = {}
         self.words = {}
 
-    def __create_ngrams(self, s: str, n: int):
+    def __create_ngrams(self, s: str, n: int) -> zip:
         tokens = [token for token in s.lower().split(" ") if token != ""]
         return zip(*[tokens[i:] for i in range(n)])
 
-    def __update_words_dict(self, word):
+    def __update_words_dict(self, word) -> int:
         key = 0
         try:
             key = self.words[word]
@@ -46,11 +45,11 @@ class NgramModel:
                 except KeyError:
                     self.ngram_counter[ngram[0]] = {key: count}
 
-    def probability_phrase(self, text: str):
+    def probability_phrase(self, text: str) -> float:
         """
         Предсказание вероятности входного предложения
         """
-        probability = 1
+        probability = 1.0
         for gram in self.__create_ngrams(text, self.N):
             if gram[0] in self.ngram_counter.keys()\
                     and gram[1] in self.ngram_counter[gram[0]]:
