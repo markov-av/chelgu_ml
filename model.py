@@ -1,4 +1,5 @@
 from collections import Counter, OrderedDict
+import re
 import pandas as pd
 from tqdm import tqdm
 import collections
@@ -6,87 +7,88 @@ import collections
 
 class NgramModel:
     """
-    Использование сглаживания Лапласа для поддержки невстреченных ранее
-    слов
+    n-gram model
     """
     def __init__(self):
         self.word_count = 0
         self.N = 2
         self.ngram_counter = {}
         self.__word_in_ngram = {}
+        self.words = {}
 
     def __create_ngrams(self, s: str, n: int):
-        s = s.lower()
-        # Break sentence in the token, remove empty tokens
-        tokens = [token for token in s.split(" ") if token != ""]
-        for ngram in enumerate(zip(*[tokens[i:] for i in range(n)])):
-            for token in tokens:
-                if any(word in token for word in ngram[-1]):
-                    if token in self.__word_in_ngram.keys():
-                        self.__word_in_ngram[token] += [" ".join(ngram[-1])]
-                    else:
-                        self.__word_in_ngram[token] = [" ".join(ngram[-1])]
-        # Use the zip function to help us generate n-grams
-        # Concatentate the tokens into ngrams and return
-        ngrams = zip(*[tokens[i:] for i in range(n)])
+        tokens = [token for token in s.lower().split(" ") if token != ""]
+        return zip(*[tokens[i:] for i in range(n)])
 
-        return [" ".join(ngram) for ngram in ngrams]
+    def __update_words_dict(self, word):
+        key = 0
+        try:
+            key = self.words[word]
+        except KeyError:
+            self.word_count += 1
+            self.words[word] = self.word_count
+        return key if key else self.word_count
 
-    def fit(self, text: str, n: int = 2) -> dict:
-        for s in text.split('.'):
-            ngrams = Counter(self.__create_ngrams(s, n))
-            if not self.ngram_counter:
-                self.ngram_counter.update(ngrams)
-            else:
-                for ngram in list(ngrams.keys()):
-                    if ngram in self.ngram_counter.keys():
-                        self.ngram_counter[ngram] += ngrams.pop(ngram)
-                self.ngram_counter.update(ngrams)
-        self.word_count = sum(self.ngram_counter.values())
-        self.ngram_counter = {k: v for k, v in reversed(sorted(
-            self.ngram_counter.items(), key=lambda item: item[1]))}
-        return self.ngram_counter
+    def fit(self, text: str) -> None:
+        text = re.sub("[,.!?:;*^%$#/«»<>)(—]", "", text)
+        ngrams = Counter(self.__create_ngrams(text, self.N))
+        if ngrams:
+            for ngram, count in list(ngrams.items()):
+                key = self.__update_words_dict(ngram[1])
+                try:
+                    self.ngram_counter[ngram[0]]\
+                        .update(
+                        {key: self.ngram_counter[ngram[0]][key] +
+                                   count
+                            if key in self.ngram_counter[ngram[0]].keys()
+                            else count}
+                    )
+                except KeyError:
+                    self.ngram_counter[ngram[0]] = {key: count}
 
-    def probability_phrase(self, text: str, n: int = 2):
+    def probability_phrase(self, text: str):
         """
-                Предсказание вероятности входного предложения
+        Предсказание вероятности входного предложения
         """
-        probability = 0
-        for gram in self.__create_ngrams(text, n):
-            if gram in self.ngram_counter.keys():
-                probability += self.ngram_counter[gram] / self.word_count
+        probability = 1
+        for gram in self.__create_ngrams(text, self.N):
+            if gram[0] in self.ngram_counter.keys()\
+                    and gram[1] in self.ngram_counter[gram[0]]:
+                probability *=\
+                    self.ngram_counter[gram[0]][gram[1]] /\
+                    sum(self.ngram_counter[gram[0]].values())
             else:
                 break
-        return round(probability, 4)
+        return probability
 
     def probability_word(self,
                          text: str,
                          phrases_count: int = 1,
-                         without_word: bool = False) -> list:
+                         laplace: bool = False) -> list:
         """
-                Предсказание наиболее вероятных пар ко входному слову
+        Предсказание наиболее вероятных пар ко входному слову
+        Использование сглаживания Лапласа для поддержки невстреченных ранее
+        слов
         """
-        phrases = []
         text = text.lower()
-        for phrase in self.ngram_counter:
-            if phrases_count != 0 and text in phrase.split():
-                if without_word:
-                    phrases.append(phrase.split(text)[-1] if phrase.split(text)[-1] else '')
-                    phrases_count -= 1 if phrase.split(text)[-1] else 0
-                else:
-                    phrases.append(
-                        (phrase,
-                         round(self.ngram_counter[phrase]
-                               / self.word_count, 4))
-                    )
-                    phrases_count -= 1
-            if phrases == 0:
-                break
-        return phrases if phrases else f"Нет продолжения для слова '{text}'"
+        try:
+            index = list({k: v for k, v in reversed(
+                sorted(self.ngram_counter[text].items(),
+                       key=lambda item: item[1]))})[:phrases_count]
+            return [
+                list(self.words.keys())[list(self.words.values()).index(idx)]
+                for idx in index
+            ]
+        except KeyError:
+            if laplace:
+                return list(self.ngram_counter.values())[:phrases_count]
+            else:
+                print(f"Нет продолжение для слова '{text}'. "
+                      f"Попробуйте использовать сглаживание Лапласа")
 
     def continue_phrase(self, text: str, phrases_count: int):
         """
-            Продолжение входной фразы словами до заданной длины
+        Продолжение входной фразы словами до заданной длины
         """
         continue_phrase = []
         word = text.lower().split()[-1]
@@ -95,8 +97,7 @@ class NgramModel:
                 word = self.probability_word(
                     text=word[-1].split()[-1] if isinstance(word, list)
                     else word,
-                    phrases_count=1,
-                    without_word=True
+                    phrases_count=1
                 )
                 if word == f"Нет продолжения для слова '{text}'":
                     break
@@ -107,22 +108,25 @@ class NgramModel:
         return f"{text} {' '.join(continue_phrase)}" if continue_phrase\
             else f"Для фразы '{text}' нет продолжения"
 
+    @property
     def print_ngramm(self):
-        print(self.ngram_counter)
+        import pprint
+        return pprint.pprint(self.ngram_counter)
 
 
-text = "Использование сглаживания Лапласа для поддержки невстреченных ранее слов"
-
-model = NgramModel()
-model.fit(text, 2)
-text = "Продолжение входной фразы словами до заданной длины. Использование сглаживания Лапласа"
-model.fit(text, 2)
-text = "Продолжение входной фразы словами до заданной длины"
-model.fit(text, 2)
-# model.print_ngramm()
-print(model.probability_phrase("Продолжение входной фразы словами"))
-print(model.probability_word("фразы"))
-print(model.continue_phrase("входной", 3))
+# text = "Использование сглаживания Лапласа для поддержки невстреченных ранее слов"
+# model = NgramModel()
+# model.fit(text)
+# text = "Продолжение входной фразы словами до заданной длины. Использование сглаживания Лапласа"
+# model.fit(text)
+# text = "Продолжение входной фразы словами до заданной длины"
+# model.fit(text)
+# model.fit(text)
+# model.print_ngramm
+# print(model.words)
+# print(model.probability_phrase("Продолжение входной фразы словами"))
+# print(model.probability_word("фразы"))
+# print(model.continue_phrase("входной", 3))
 # df = pd.read_csv('news.csv', sep=';')
 # df = df[['news_headline', 'news_body']]
 # df['news'] = df['news_headline'] + " " + df['news_body']
